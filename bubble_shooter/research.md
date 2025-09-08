@@ -31,3 +31,20 @@
 - Shooter: nằm ở giũa phía dưới.
 - Lưới bóng: hiển thị phía trên.
 - Thanh điểm.
+
+# Thông tin kỹ thuật
+
+## Thuật toán sử dụng BFS:
+
+- Để tìm kiếm các quả bóng cùng màu, chúng ta sử dụng thuật toán tìm kiếm theo chiều rộng(BFS).
+- BFS là một thuật toán để duyệt đồ thị hoặc cây:
+
+* BFS tiêu chuẩn sẽ đặt mỗi đỉnh của đồ thị vào một trong hai loại: visited và not visited.
+* Mục đích của thuật toán là đánh dấu mỗi đỉnh là đã thăm để tránh các chu trình.
+* Cách thuật toán hoạt động như sau:
+
+  1. Lấy một đỉnh bất kỳ trong đồ thị thêm vào cuối hàng đợi.
+
+  2. Lấy phân tử đầu tiên của hàng đợi và thêm nó vào danh sách đã duyệt.
+  3. Tạo một danh sách các đỉnh liền kề của đỉnh đang xét. Thêm những đỉnh không có trong danh sách đã duyệt vào cuối hàng đợi.
+  4. Tiếp tục lặp lại bước 2 và 3 cho đến khi hàng đợi trống.
