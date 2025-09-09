@@ -47,6 +47,12 @@ export default class GameScene extends Phaser.Scene {
   private RIGHT_PAD!: number;
   // private gridGraphics!: Phaser.GameObjects.Graphics;
 
+  private shotsFired = 0;
+  private shotsPerNewRow = 5;
+  private pendingNewRow = false;
+
+  private rowOffset = 0;
+
   constructor() {
     super("game");
   }
@@ -154,15 +160,19 @@ export default class GameScene extends Phaser.Scene {
 
   //Convert row and col to coordinates in canva
   private cellToWorld(row: number, col: number) {
-    const xOffset = row % 2 === 0 ? 0 : this.bubbleRadius;
-    const x =
-      col * this.bubbleRadius * 2 + xOffset + this.LEFT_PAD + this.bubbleRadius;
+    // const xOffset = row % 2 === 0 ? 0 : this.bubbleRadius;
+    const xOffset = (row + this.rowOffset) % 2 === 0 ? 0 : this.bubbleRadius;
+    // const x =
+    //   col * this.bubbleRadius * 2 + xOffset + this.LEFT_PAD + this.bubbleRadius;
+    const x = col * this.bubbleRadius * 2 + xOffset + this.LEFT_PAD;
     const y = row * this.ROW_H + this.TOP_PAD + this.bubbleRadius;
     return { x, y };
   }
+
   //Return neighbors of bubble already exist
   private getNeighbors(row: number, col: number) {
-    const even = row % 2 === 0;
+    // const even = row % 2 === 0;
+    const even = (row + this.rowOffset) % 2 === 0;
     const dist = even
       ? [
           [-1, 0],
@@ -239,7 +249,7 @@ export default class GameScene extends Phaser.Scene {
       group.push([row, col]);
 
       for (const [nr, nc] of this.getNeighbors(row, col)) {
-        if (!visited.has(`${nr}, ${nc}`)) {
+        if (!visited.has(`${nr},${nc}`)) {
           queue.push([nr, nc]);
         }
       }
@@ -274,8 +284,8 @@ export default class GameScene extends Phaser.Scene {
     for (const [row, col] of group) {
       const cell = this.grid[row][col];
       if (cell) {
-        cell.image.destroy(); // xóa ảnh
-        this.grid[row][col] = undefined; // xóa dữ liệu trong grid
+        cell.image.destroy();
+        this.grid[row][col] = undefined;
       }
     }
   }
@@ -354,6 +364,51 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  private addNewRow() {
+    const newRow: { color: string; image: Phaser.GameObjects.Image }[] = [];
+
+    for (let col = 0; col < this.COLS; col++) {
+      const colorKey = Phaser.Utils.Array.GetRandom(this.colors);
+      const { x, y } = this.cellToWorld(0, col);
+
+      const img = this.add
+        .image(x, y, colorKey)
+        .setDisplaySize(this.bubbleRadius * 2, this.bubbleRadius * 2);
+
+      newRow[col] = { color: colorKey, image: img };
+    }
+
+    this.grid.unshift(newRow);
+
+    this.rowOffset = 1 - this.rowOffset;
+
+    while (this.grid.length > this.ROWS) {
+      const removed = this.grid.pop();
+      if (removed) {
+        for (const cell of removed) {
+          cell?.image.destroy();
+        }
+      }
+    }
+
+    for (let row = 0; row < this.ROWS; row++) {
+      for (let col = 0; col < this.COLS; col++) {
+        const cell = this.grid[row][col];
+        if (cell && cell.image) {
+          const { x, y } = this.cellToWorld(row, col);
+          cell.image.setPosition(x, y);
+        }
+      }
+    }
+
+    for (let col = 0; col < this.COLS; col++) {
+      if (this.grid[this.ROWS - 1] && this.grid[this.ROWS - 1][col]) {
+        this.showGameOverPopup();
+        break;
+      }
+    }
+  }
+
   private placeBubbleToGrid(
     bubble: typeof this.activeBubble,
     row?: number,
@@ -363,9 +418,11 @@ export default class GameScene extends Phaser.Scene {
 
     if (row === undefined || col === undefined) {
       row = Math.floor((bubble.y - this.TOP_PAD) / this.ROW_H);
-      const rowOffset = row % 2 === 0 ? 0 : this.bubbleRadius;
+      // const rowOffset = row % 2 === 0 ? 0 : this.bubbleRadius;
+      const rowXOffset =
+        (row + this.rowOffset) % 2 === 0 ? 0 : this.bubbleRadius;
       col = Math.floor(
-        (bubble.x - this.LEFT_PAD + rowOffset) / (this.bubbleRadius * 2)
+        (bubble.x - this.LEFT_PAD + rowXOffset) / (this.bubbleRadius * 2)
       );
     }
 
@@ -391,6 +448,11 @@ export default class GameScene extends Phaser.Scene {
     // hủy bubble bay
     bubble.gfx.destroy();
     this.activeBubble = undefined;
+
+    if (this.pendingNewRow) {
+      this.addNewRow();
+      this.pendingNewRow = false;
+    }
   }
 
   private spawnNewBubble() {
@@ -419,30 +481,28 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private shootBubble(mouseX: number, mouseY: number) {
-    //if there are bubble fly then can't shoot
     if (this.activeBubble) return;
 
     //Caculate direction vector(1)
-    const dx = mouseX - this.shooterX;
-    const dy = mouseY - this.shooterY;
-    const lenght = Math.sqrt(dx * dx + dy * dy);
-    const vx = dx / lenght;
-    const vy = dy / lenght;
+    // const dx = mouseX - this.shooterX;
+    // const dy = mouseY - this.shooterY;
+    // const lenght = Math.sqrt(dx * dx + dy * dy);
+    // const vx = dx / lenght;
+    // const vy = dy / lenght;
 
-    //equivalent (1)
-    // const angle = Phaser.Math.Angle.Between(
-    //   this.shooterX,
-    //   this.shooterY,
-    //   mouseX,
-    //   mouseY
-    // );
-    // const vx = Math.cos(angle);
-    // const vy = Math.sin(angle);
+    // Tính góc
+    let angle = Phaser.Math.Angle.Between(
+      this.shooterX,
+      this.shooterY,
+      mouseX,
+      mouseY
+    );
 
-    //create bubble
-    // const gfx = this.add.graphics();
-    // gfx.fillStyle(this.currentBubbleColor, 1);
-    // gfx.fillCircle(this.shooterX, this.shooterY, this.bubbleRadius);
+    if (angle > 0) angle *= -1;
+
+    // Velocity
+    const vx = Math.cos(angle);
+    const vy = Math.sin(angle);
 
     const gfx = this.add
       .image(this.shooterX, this.shooterY, this.currentBubbleColor)
@@ -458,8 +518,15 @@ export default class GameScene extends Phaser.Scene {
       color: this.currentBubbleColor,
     };
 
-    //spawn new bubble to shooter
     this.spawnNewBubble();
+    this.shotsFired++;
+    console.log("Shot fired", this.shotsFired);
+
+    if (this.shotsFired >= this.shotsPerNewRow) {
+      this.shotsFired = 0;
+      // this.addNewRow();
+      this.pendingNewRow = true;
+    }
   }
 
   private checkCollisionWithGrid() {
